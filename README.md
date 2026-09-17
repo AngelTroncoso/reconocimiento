@@ -9,7 +9,7 @@ App web de reconocimiento de objetos usando la cámara del dispositivo, **100% c
 | Next.js (App Router) | 14.2 | Framework web |
 | TypeScript | 5.4 | Tipado estático |
 | @mediapipe/tasks-vision | 0.10.14 | Motor de detección (WASM) |
-| EfficientDet-Lite0 | float16 | Modelo de detección (CDN oficial) |
+| EfficientDet-Lite2 | float32 | Modelo de detección (CDN oficial) |
 | Tailwind CSS | 3.4 | Estilos |
 
 ## Funcionalidad
@@ -20,6 +20,20 @@ App web de reconocimiento de objetos usando la cámara del dispositivo, **100% c
 - **Lista de objetos detectados** debajo del video con barras de confianza
 - Manejo de errores de cámara (permiso denegado, cámara no encontrada, etc.)
 - Indicador de estado del modelo (cargando / listo / error)
+
+## Modelo
+
+**EfficientDet-Lite2 (float32)** — detecta **80 clases COCO** (personas, coches, animales, muebles, electrodomésticos, etc.)
+
+| Modelo | Tamaño | Precisión | Velocidad |
+|---|---|---|---|
+| EfficientDet-Lite0 | ~4 MB | Base | Muy rápido |
+| **EfficientDet-Lite2** | **~7 MB** | **Mejor** | **Rápido** |
+| EfficientDet-Lite4 | ~20 MB | Máxima | Moderado |
+
+- Cargado desde `storage.googleapis.com/mediapipe-models` (se cachea en el navegador tras la primera carga).
+- Runtime WASM desde `cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm`.
+- GPU delegate activado, con fallback automático a CPU.
 
 ## Requisitos
 
@@ -38,64 +52,38 @@ npm run dev
 
 Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
-> **Nota sobre HTTPS:** `getUserMedia` requiere un contexto seguro. En desarrollo, `localhost` funciona sin HTTPS. En producción necesitas un dominio con TLS (Vercel lo gestiona automáticamente).
+> **Nota:** `getUserMedia` requiere HTTPS. En desarrollo, `localhost` funciona sin TLS. En producción Vercel lo gestiona automáticamente.
 
 ## Deploy en Vercel
 
-### Opción 1 — CLI de Vercel
+### Opción 1 — Dashboard (recomendado)
+
+1. Sube el proyecto a GitHub.
+2. En [vercel.com/new](https://vercel.com/new), importa el repositorio.
+3. Sin configuración adicional — Vercel detecta Next.js automáticamente.
+4. Haz clic en **Deploy**.
+
+Vercel redesplegará automáticamente con cada push a `main`.
+
+### Opción 2 — CLI
 
 ```bash
 npm install -g vercel
-vercel
+vercel --prod
 ```
 
-Sigue el asistente interactivo. Vercel detectará Next.js automáticamente.
-
-### Opción 2 — Dashboard de Vercel
-
-1. Sube el proyecto a un repositorio de GitHub / GitLab / Bitbucket.
-2. En [vercel.com/new](https://vercel.com/new), importa el repositorio.
-3. Sin cambios de configuración — Vercel detecta Next.js y construye con `next build`.
-4. Haz clic en **Deploy**.
-
-### Opción 3 — Un solo comando
-
-```bash
-npx vercel --yes
-```
-
-## Notas técnicas
-
-### Headers COOP/COEP
-
-El runtime WASM de MediaPipe usa `SharedArrayBuffer`, que requiere un contexto de [aislamiento cross-origin](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements). `next.config.mjs` añade automáticamente:
-
-```
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp
-```
-
-Vercel respeta esta configuración de Next.js sin ajustes adicionales.
-
-### Modelo
-
-- **EfficientDet-Lite0 (float16)** — detecta **80 clases COCO** (personas, coches, animales, muebles, etc.)
-- Cargado desde `storage.googleapis.com/mediapipe-models` la primera vez; el navegador lo cachea.
-- Runtime WASM desde `cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm`.
-- Delegación a GPU habilitada (`delegate: "GPU"`), con fallback automático a CPU.
-
-### Estructura de archivos
+## Estructura del proyecto
 
 ```
 src/
 ├── app/
-│   ├── layout.tsx          # Root layout con metadata
-│   ├── page.tsx            # Página principal
-│   └── globals.css         # Tailwind base styles
+│   ├── layout.tsx               # Root layout con metadata
+│   ├── page.tsx                 # Página principal
+│   └── globals.css              # Tailwind base styles
 ├── components/
-│   └── ObjectDetectionCamera.tsx   # Lógica de cámara + canvas + UI
+│   └── ObjectDetectionCamera.tsx  # Cámara + canvas overlay + UI
 └── hooks/
-    └── useObjectDetector.ts        # Inicialización del modelo MediaPipe
+    └── useObjectDetector.ts     # Inicialización del modelo MediaPipe
 ```
 
 ## Privacidad

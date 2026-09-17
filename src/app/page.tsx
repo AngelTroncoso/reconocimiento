@@ -37,7 +37,7 @@ export default function Home() {
           >
             MediaPipe Tasks Vision
           </a>{" "}
-          y EfficientDet-Lite0. El modelo corre completamente en tu navegador,
+          y EfficientDet-Lite2. El modelo corre completamente en tu navegador,
           ningún dato sale de tu dispositivo.
         </p>
       </header>
@@ -50,7 +50,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="mt-16 text-slate-600 text-xs text-center">
         <p>
-          Modelo: EfficientDet-Lite0 (float16) · 80 clases COCO ·{" "}
+          Modelo: EfficientDet-Lite2 (float32) · 80 clases COCO ·{" "}
           <span className="text-slate-500">~15 FPS</span>
         </p>
         <p className="mt-1">

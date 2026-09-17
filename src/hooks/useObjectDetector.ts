@@ -6,9 +6,9 @@ import type {
   ObjectDetectorOptions,
 } from "@mediapipe/tasks-vision";
 
-// EfficientDet-Lite0 hosted on the official MediaPipe CDN.
+// EfficientDet-Lite2 (float32) — better accuracy than Lite0, still fast enough for real-time.
 const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite";
+  "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/float32/1/efficientdet_lite2.tflite";
 
 // WASM runtime files are served from the same CDN so no local files are needed.
 const WASM_BASE_URL =
@@ -50,7 +50,7 @@ export function useObjectDetector(): UseObjectDetectorReturn {
           },
           runningMode: "VIDEO",
           maxResults: 10,
-          scoreThreshold: 0.4,
+          scoreThreshold: 0.35,
         };
 
         const objectDetector = await MPObjectDetector.createFromOptions(
