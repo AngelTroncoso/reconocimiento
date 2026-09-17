@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, {
   useCallback,
@@ -10,7 +10,7 @@ import type { Detection } from "@mediapipe/tasks-vision";
 import { useObjectDetector } from "@/hooks/useObjectDetector";
 
 // ------------------------------------------------------------------
-// Colour palette — one colour per label for consistent bounding boxes
+// Colour palette - one colour per label for consistent bounding boxes
 // ------------------------------------------------------------------
 const PALETTE = [
   "#EF4444", "#F97316", "#EAB308", "#22C55E",
@@ -120,7 +120,8 @@ export default function ObjectDetectionCamera() {
         if (!existing || obj.score > existing.score) seen.set(obj.label, obj);
       }
 
-      setDetectedObjects(Array.from(seen.values()).sort((a, b) => b.score - a.score));
+      const sorted = Array.from(seen.values()).sort((a, b) => b.score - a.score);
+      setDetectedObjects(sorted);
     },
     [],
   );
@@ -147,7 +148,6 @@ export default function ObjectDetectionCamera() {
             videoSize.height,
           );
         } catch (e) {
-          // Silently ignore transient errors (e.g. frame not ready)
           console.warn("Detection frame skipped:", e);
         }
       }
@@ -208,12 +208,12 @@ export default function ObjectDetectionCamera() {
     } catch (err) {
       const msg =
         err instanceof DOMException && err.name === "NotAllowedError"
-          ? "Permiso de cámara denegado. Habilítalo en la configuración del navegador."
+          ? "Permiso de camara denegado. Habilita el acceso en la configuracion del navegador."
           : err instanceof DOMException && err.name === "NotFoundError"
-            ? "No se encontró ninguna cámara en este dispositivo."
+            ? "No se encontro ninguna camara en este dispositivo."
             : err instanceof Error
               ? err.message
-              : "Error desconocido al acceder a la cámara.";
+              : "Error desconocido al acceder a la camara.";
       setCameraError(msg);
     }
   }, []);
@@ -227,8 +227,10 @@ export default function ObjectDetectionCamera() {
       rafRef.current = null;
     }
 
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
 
     const video = videoRef.current;
     if (video) {
@@ -238,7 +240,7 @@ export default function ObjectDetectionCamera() {
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext("2d");
-      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
     setDetectedObjects([]);
@@ -260,28 +262,25 @@ export default function ObjectDetectionCamera() {
   // ----------------------------------------------------------------
   return (
     <div className="flex flex-col items-center gap-6 w-full">
-      {/* Model loading status */}
       {status === "loading" && (
         <div className="flex items-center gap-3 text-sm text-slate-400 bg-slate-800/60 px-4 py-2 rounded-full">
           <span className="inline-block w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-          Cargando modelo EfficientDet-Lite0…
+          Cargando modelo EfficientDet-Lite0...
         </div>
       )}
 
       {(status === "error" || error) && (
         <div className="text-sm text-red-400 bg-red-950/40 border border-red-800 px-4 py-2 rounded-lg max-w-md text-center">
-          ⚠️ {error ?? "Error al inicializar el detector."}
+          Error: {error ?? "Error al inicializar el detector."}
         </div>
       )}
 
-      {/* Camera error */}
       {cameraError && (
         <div className="text-sm text-amber-300 bg-amber-950/40 border border-amber-700 px-4 py-2 rounded-lg max-w-md text-center">
-          📷 {cameraError}
+          {cameraError}
         </div>
       )}
 
-      {/* Video + canvas overlay */}
       <div
         className="relative rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-700"
         style={{ width: videoSize.width, maxWidth: "100%" }}
@@ -300,7 +299,6 @@ export default function ObjectDetectionCamera() {
           className="absolute inset-0 w-full h-full pointer-events-none"
         />
 
-        {/* Placeholder when camera is off */}
         {!cameraActive && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 gap-3">
             <svg
@@ -317,11 +315,10 @@ export default function ObjectDetectionCamera() {
                 d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
               />
             </svg>
-            <p className="text-slate-500 text-sm">Cámara desactivada</p>
+            <p className="text-slate-500 text-sm">Camara desactivada</p>
           </div>
         )}
 
-        {/* Live indicator */}
         {cameraActive && (
           <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 px-2.5 py-1 rounded-full text-xs font-semibold text-white backdrop-blur-sm">
             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
@@ -330,27 +327,27 @@ export default function ObjectDetectionCamera() {
         )}
       </div>
 
-      {/* Controls */}
       <div className="flex gap-3">
         {!cameraActive ? (
           <button
             onClick={activateCamera}
             disabled={status === "loading" || status === "error"}
+            aria-label="Activar camara"
             className="px-6 py-3 rounded-xl font-semibold text-sm bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-indigo-900/40"
           >
-            {status === "loading" ? "Cargando modelo…" : "Activar cámara"}
+            {status === "loading" ? "Cargando modelo..." : "Activar camara"}
           </button>
         ) : (
           <button
             onClick={deactivateCamera}
+            aria-label="Detener camara"
             className="px-6 py-3 rounded-xl font-semibold text-sm bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-white transition-colors shadow-lg"
           >
-            Detener cámara
+            Detener camara
           </button>
         )}
       </div>
 
-      {/* Detected objects list */}
       {cameraActive && (
         <div className="w-full max-w-xl">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">
@@ -359,7 +356,7 @@ export default function ObjectDetectionCamera() {
 
           {detectedObjects.length === 0 ? (
             <p className="text-slate-600 text-sm text-center py-4">
-              Ningún objeto detectado…
+              Ningun objeto detectado...
             </p>
           ) : (
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -378,7 +375,6 @@ export default function ObjectDetectionCamera() {
                   <span className="text-xs font-mono font-semibold text-slate-400">
                     {Math.round(score * 100)}%
                   </span>
-                  {/* Confidence bar */}
                   <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-300"
