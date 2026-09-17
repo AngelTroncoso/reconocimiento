@@ -120,7 +120,7 @@ export default function ObjectDetectionCamera() {
         if (!existing || obj.score > existing.score) seen.set(obj.label, obj);
       }
 
-      setDetectedObjects([...seen.values()].sort((a, b) => b.score - a.score));
+      setDetectedObjects(Array.from(seen.values()).sort((a, b) => b.score - a.score));
     },
     [],
   );
