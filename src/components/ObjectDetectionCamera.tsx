@@ -145,14 +145,33 @@ export default function ObjectDetectionCamera() {
     }
 
     try {
-      let stream: MediaStream;
+      // Step 1: try with ideal resolution constraints
+      let stream: MediaStream | null = null;
+      let step1Error: unknown = null;
+
       try {
+        console.log("[Camera] Trying getUserMedia with ideal constraints...");
         stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false,
         });
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        console.log("[Camera] Step 1 succeeded");
+      } catch (e1) {
+        step1Error = e1;
+        console.warn("[Camera] Step 1 failed:", e1);
+      }
+
+      // Step 2: fallback to bare video:true
+      if (!stream) {
+        try {
+          console.log("[Camera] Trying getUserMedia fallback { video: true }...");
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          console.log("[Camera] Step 2 (fallback) succeeded");
+        } catch (e2) {
+          console.error("[Camera] Step 2 (fallback) also failed:", e2);
+          // Both attempts failed — throw the step1 error (more informative) if available
+          throw step1Error ?? e2;
+        }
       }
 
       streamRef.current = stream;
@@ -171,27 +190,36 @@ export default function ObjectDetectionCamera() {
       setVideoSize({ width: w, height: h });
       setCameraActive(true);
     } catch (err) {
-      let msg = "Error desconocido al acceder a la camara.";
+      console.error("[Camera] Fatal error:", err);
+
+      // Show the raw error name+message for diagnosis
+      const errName = err instanceof DOMException ? err.name : (err instanceof Error ? err.constructor.name : "UnknownError");
+      const errMsg = err instanceof Error ? err.message : String(err);
+
+      let userMsg = "";
       if (err instanceof DOMException) {
         const n = err.name;
         if (n === "NotAllowedError" || n === "PermissionDeniedError") {
-          msg =
-            "Permiso de camara denegado. Ve a Configuracion del navegador y permite el acceso a la camara para este sitio.";
+          userMsg = "Permiso de camara denegado. Habilita el acceso en la configuracion del navegador.";
         } else if (n === "NotFoundError" || n === "DevicesNotFoundError") {
-          msg =
-            "No se detecto ninguna camara. Verifica que tu dispositivo tiene camara y que el navegador tiene permiso de usarla.";
+          userMsg = "El navegador no encontro una camara disponible.";
         } else if (n === "NotReadableError" || n === "TrackStartError") {
-          msg =
-            "La camara esta siendo usada por otra aplicacion. Cierrala e intenta de nuevo.";
+          userMsg = "La camara esta siendo usada por otra aplicacion. Cierrala e intenta de nuevo.";
         } else if (n === "OverconstrainedError") {
-          msg = "La camara no cumple los requisitos de resolucion. Intenta de nuevo.";
+          userMsg = "La camara no cumple los requisitos. Intenta de nuevo.";
         } else if (n === "NotSupportedError") {
-          msg = "Acceso a camara no soportado en este contexto. Asegurate de estar en HTTPS.";
+          userMsg = "Acceso a camara no soportado. Asegurate de estar en HTTPS.";
+        } else {
+          userMsg = "Error de camara inesperado.";
         }
       } else if (err instanceof Error) {
-        msg = err.message;
+        userMsg = err.message;
+      } else {
+        userMsg = "Error desconocido.";
       }
-      setCameraError(msg);
+
+      // Include technical detail for diagnosis
+      setCameraError(userMsg + " [" + errName + ": " + errMsg + "]");
     }
   }, []);
 
@@ -234,12 +262,12 @@ export default function ObjectDetectionCamera() {
 
       {(status === "error" || error) && (
         <div className="text-sm text-red-400 bg-red-950/40 border border-red-800 px-4 py-2 rounded-lg max-w-md text-center">
-          Error: {error ?? "Error al inicializar el detector."}
+          Error modelo: {error ?? "Error al inicializar el detector."}
         </div>
       )}
 
       {cameraError && (
-        <div className="text-sm text-amber-300 bg-amber-950/40 border border-amber-700 px-4 py-2 rounded-lg max-w-md text-center">
+        <div className="text-sm text-amber-300 bg-amber-950/40 border border-amber-700 px-4 py-2 rounded-lg max-w-xl text-center break-all">
           {cameraError}
         </div>
       )}
