@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, {
   useCallback,
@@ -9,9 +9,6 @@ import React, {
 import type { Detection } from "@mediapipe/tasks-vision";
 import { useObjectDetector } from "@/hooks/useObjectDetector";
 
-// ------------------------------------------------------------------
-// Colour palette - one colour per label for consistent bounding boxes
-// ------------------------------------------------------------------
 const PALETTE = [
   "#EF4444", "#F97316", "#EAB308", "#22C55E",
   "#14B8A6", "#3B82F6", "#8B5CF6", "#EC4899",
@@ -27,24 +24,15 @@ const labelColour = (() => {
   };
 })();
 
-// ------------------------------------------------------------------
-// Target frame rate
-// ------------------------------------------------------------------
 const TARGET_FPS = 15;
 const FRAME_INTERVAL_MS = 1000 / TARGET_FPS;
 
-// ------------------------------------------------------------------
-// Types
-// ------------------------------------------------------------------
 interface DetectedObject {
   label: string;
   score: number;
   color: string;
 }
 
-// ------------------------------------------------------------------
-// Component
-// ------------------------------------------------------------------
 export default function ObjectDetectionCamera() {
   const { detector, status, error } = useObjectDetector();
 
@@ -59,9 +47,6 @@ export default function ObjectDetectionCamera() {
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
   const [videoSize, setVideoSize] = useState({ width: 640, height: 480 });
 
-  // ----------------------------------------------------------------
-  // Draw bounding boxes on canvas
-  // ----------------------------------------------------------------
   const drawDetections = useCallback(
     (detections: Detection[], width: number, height: number) => {
       const canvas = canvasRef.current;
@@ -70,65 +55,51 @@ export default function ObjectDetectionCamera() {
       if (!ctx) return;
 
       ctx.clearRect(0, 0, width, height);
-
       const objects: DetectedObject[] = [];
 
       for (const detection of detections) {
         const bbox = detection.boundingBox;
         if (!bbox) continue;
 
-        const label =
-          detection.categories[0]?.categoryName ?? "desconocido";
+        const label = detection.categories[0]?.categoryName ?? "desconocido";
         const score = detection.categories[0]?.score ?? 0;
         const color = labelColour(label);
 
-        // Bounding box
         ctx.strokeStyle = color;
         ctx.lineWidth = 2.5;
         ctx.strokeRect(bbox.originX, bbox.originY, bbox.width, bbox.height);
 
-        // Label background
-        const text = `${label} ${Math.round(score * 100)}%`;
+        const pct = Math.round(score * 100);
+        const text = label + " " + pct + "%";
         ctx.font = "bold 14px Inter, sans-serif";
         const textMetrics = ctx.measureText(text);
         const padX = 6;
         const padY = 4;
         const labelH = 20;
-        const labelY = bbox.originY > labelH + padY
-          ? bbox.originY - labelH - padY
-          : bbox.originY + padY;
+        const labelY =
+          bbox.originY > labelH + padY
+            ? bbox.originY - labelH - padY
+            : bbox.originY + padY;
 
         ctx.fillStyle = color;
-        ctx.fillRect(
-          bbox.originX,
-          labelY - padY,
-          textMetrics.width + padX * 2,
-          labelH + padY,
-        );
-
-        // Label text
+        ctx.fillRect(bbox.originX, labelY - padY, textMetrics.width + padX * 2, labelH + padY);
         ctx.fillStyle = "#ffffff";
         ctx.fillText(text, bbox.originX + padX, labelY + labelH - padY - 2);
 
         objects.push({ label, score, color });
       }
 
-      // Deduplicate by label (keep highest score)
       const seen = new Map<string, DetectedObject>();
       for (const obj of objects) {
         const existing = seen.get(obj.label);
         if (!existing || obj.score > existing.score) seen.set(obj.label, obj);
       }
-
       const sorted = Array.from(seen.values()).sort((a, b) => b.score - a.score);
       setDetectedObjects(sorted);
     },
-    [],
+    []
   );
 
-  // ----------------------------------------------------------------
-  // Detection loop
-  // ----------------------------------------------------------------
   const runDetection = useCallback(
     (timestamp: number) => {
       const video = videoRef.current;
@@ -139,27 +110,18 @@ export default function ObjectDetectionCamera() {
 
       if (timestamp - lastFrameTimeRef.current >= FRAME_INTERVAL_MS) {
         lastFrameTimeRef.current = timestamp;
-
         try {
           const results = detector.detectForVideo(video, timestamp);
-          drawDetections(
-            results.detections,
-            videoSize.width,
-            videoSize.height,
-          );
+          drawDetections(results.detections, videoSize.width, videoSize.height);
         } catch (e) {
           console.warn("Detection frame skipped:", e);
         }
       }
-
       rafRef.current = requestAnimationFrame(runDetection);
     },
-    [detector, drawDetections, videoSize],
+    [detector, drawDetections, videoSize]
   );
 
-  // ----------------------------------------------------------------
-  // Start / stop detection loop when camera + detector are ready
-  // ----------------------------------------------------------------
   useEffect(() => {
     if (cameraActive && status === "ready") {
       rafRef.current = requestAnimationFrame(runDetection);
@@ -172,24 +134,28 @@ export default function ObjectDetectionCamera() {
     };
   }, [cameraActive, status, runDetection]);
 
-  // ----------------------------------------------------------------
-  // Activate camera
-  // ----------------------------------------------------------------
   const activateCamera = useCallback(async () => {
     setCameraError(null);
 
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraError(
+        "Tu navegador no soporta acceso a camara. Usa Chrome, Firefox o Safari en HTTPS."
+      );
+      return;
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: "environment",
-        },
-        audio: false,
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
 
       streamRef.current = stream;
-
       const video = videoRef.current!;
       video.srcObject = stream;
 
@@ -203,53 +169,53 @@ export default function ObjectDetectionCamera() {
       const w = video.videoWidth || 640;
       const h = video.videoHeight || 480;
       setVideoSize({ width: w, height: h });
-
       setCameraActive(true);
     } catch (err) {
-      const msg =
-        err instanceof DOMException && err.name === "NotAllowedError"
-          ? "Permiso de camara denegado. Habilita el acceso en la configuracion del navegador."
-          : err instanceof DOMException && err.name === "NotFoundError"
-            ? "No se encontro ninguna camara en este dispositivo."
-            : err instanceof Error
-              ? err.message
-              : "Error desconocido al acceder a la camara.";
+      let msg = "Error desconocido al acceder a la camara.";
+      if (err instanceof DOMException) {
+        const n = err.name;
+        if (n === "NotAllowedError" || n === "PermissionDeniedError") {
+          msg =
+            "Permiso de camara denegado. Ve a Configuracion del navegador y permite el acceso a la camara para este sitio.";
+        } else if (n === "NotFoundError" || n === "DevicesNotFoundError") {
+          msg =
+            "No se detecto ninguna camara. Verifica que tu dispositivo tiene camara y que el navegador tiene permiso de usarla.";
+        } else if (n === "NotReadableError" || n === "TrackStartError") {
+          msg =
+            "La camara esta siendo usada por otra aplicacion. Cierrala e intenta de nuevo.";
+        } else if (n === "OverconstrainedError") {
+          msg = "La camara no cumple los requisitos de resolucion. Intenta de nuevo.";
+        } else if (n === "NotSupportedError") {
+          msg = "Acceso a camara no soportado en este contexto. Asegurate de estar en HTTPS.";
+        }
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
       setCameraError(msg);
     }
   }, []);
 
-  // ----------------------------------------------------------------
-  // Deactivate camera
-  // ----------------------------------------------------------------
   const deactivateCamera = useCallback(() => {
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
-
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
-
     const video = videoRef.current;
-    if (video) {
-      video.srcObject = null;
-    }
+    if (video) video.srcObject = null;
 
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext("2d");
       if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
-
     setDetectedObjects([]);
     setCameraActive(false);
   }, []);
 
-  // ----------------------------------------------------------------
-  // Cleanup on unmount
-  // ----------------------------------------------------------------
   useEffect(() => {
     return () => {
       deactivateCamera();
@@ -257,9 +223,6 @@ export default function ObjectDetectionCamera() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ----------------------------------------------------------------
-  // Render
-  // ----------------------------------------------------------------
   return (
     <div className="flex flex-col items-center gap-6 w-full">
       {status === "loading" && (
@@ -290,7 +253,6 @@ export default function ObjectDetectionCamera() {
           muted
           playsInline
           className="block w-full h-auto"
-          style={{ aspectRatio: `${videoSize.width}/${videoSize.height}` }}
         />
         <canvas
           ref={canvasRef}
@@ -353,7 +315,6 @@ export default function ObjectDetectionCamera() {
           <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">
             Objetos detectados
           </h2>
-
           {detectedObjects.length === 0 ? (
             <p className="text-slate-600 text-sm text-center py-4">
               Ningun objeto detectado...
@@ -378,7 +339,10 @@ export default function ObjectDetectionCamera() {
                   <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-300"
-                      style={{ width: `${Math.round(score * 100)}%`, backgroundColor: color }}
+                      style={{
+                        width: Math.round(score * 100) + "%",
+                        backgroundColor: color,
+                      }}
                     />
                   </div>
                 </li>
